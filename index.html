@@ -65,6 +65,53 @@
   #btn-fire .icon::after{top:50%;left:-4px;right:-4px;height:1px;transform:translateY(-50%)}
   #btn-fire .label{font-size:10px;letter-spacing:3px;color:#a9fff1}
 
+  #btn-layout{
+    position:fixed;z-index:9;left:calc(16px + env(safe-area-inset-left));top:calc(66px + env(safe-area-inset-top));
+    width:44px;height:44px;border-radius:13px;border:1px solid rgba(120,200,255,.24);
+    background:rgba(8,18,30,.66);display:none;align-items:center;justify-content:center;cursor:pointer;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);touch-action:manipulation;
+    color:#bffef5;font-family:inherit;font-size:10px;letter-spacing:1px;
+  }
+  body.touch #btn-layout.show{display:flex}
+
+  #layout-ui{position:fixed;inset:0;z-index:20;display:none;background:rgba(2,6,12,.55);pointer-events:none}
+  body.layout #layout-ui{display:block}
+  #layout-bar{
+    position:fixed;z-index:40;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);
+    display:none;align-items:center;gap:8px;padding:7px 8px 7px 14px;border-radius:12px;
+    background:rgba(8,16,26,.94);border:1px solid rgba(120,200,255,.22);
+    box-shadow:0 10px 30px rgba(0,0,0,.45);max-width:calc(100vw - 20px);flex-wrap:wrap;justify-content:center;
+    pointer-events:auto;
+  }
+  body.layout #layout-bar{display:flex}
+  .layout-tip{font-size:11px;color:#cfe2f3;letter-spacing:.5px}
+  .layout-btn{
+    border:0;border-radius:8px;padding:7px 11px;font-family:inherit;font-size:11px;letter-spacing:1px;cursor:pointer;
+  }
+  .layout-btn.ghost{background:rgba(255,255,255,.06);border:1px solid rgba(120,200,255,.16);color:#a9c0d4}
+  .layout-btn.done{background:linear-gradient(92deg,#2becd0,#4fa8ff);color:#031018;font-weight:700}
+  body.layout #btn-fire{z-index:30;border-style:dashed;box-shadow:0 0 0 3px rgba(56,242,208,.22),0 0 32px rgba(56,242,208,.3)}
+  body.layout #btn-fire.dragging{transform:scale(1.04);cursor:grabbing}
+  body.layout #btn-pause, body.layout #btn-layout{display:none!important}
+
+  #rotate-overlay{
+    position:fixed;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;padding:30px;text-align:center;
+    background:radial-gradient(ellipse at 50% 40%,rgba(10,25,40,.98),#03060b 70%);
+  }
+  #rotate-overlay.show{display:flex}
+  .rotate-phone{
+    width:52px;height:88px;border:2px solid #38f2d0;border-radius:10px;transform:rotate(90deg);
+    box-shadow:0 0 30px rgba(56,242,208,.3);position:relative;margin:10px 0 18px;
+  }
+  .rotate-phone::before{
+    content:'';position:absolute;left:50%;bottom:6px;width:16px;height:2px;border-radius:2px;
+    background:rgba(56,242,208,.7);transform:translateX(-50%);
+  }
+  .rotate-phone::after{content:'';position:absolute;inset:-10px;border:1px dashed rgba(56,242,208,.35);border-radius:16px}
+  .rotate-title{font-size:20px;font-weight:700;letter-spacing:4px}
+  .rotate-sub{font-size:11px;line-height:1.8;letter-spacing:1px;color:#7f99b3;max-width:300px}
+
   /* ---------- overlays ---------- */
   .overlay{
     position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px;
@@ -184,7 +231,15 @@
 <canvas id="game"></canvas>
 
 <button id="btn-pause" aria-label="暂停"><i></i><i></i></button>
+<button id="btn-layout" aria-label="调整射击键位置">键位</button>
 <button id="btn-fire" aria-label="射击"><span class="icon"></span><span class="label">射击</span></button>
+
+<div id="layout-ui"></div>
+<div id="layout-bar">
+  <span class="layout-tip">拖动「射击」键调整位置</span>
+  <button id="btn-layout-reset" class="layout-btn ghost">重置</button>
+  <button id="btn-layout-done" class="layout-btn done">完成</button>
+</div>
 
 <div id="hud">
   <div class="hud-top">
@@ -244,7 +299,7 @@
     </div>
 
     <button class="btn primary" id="btn-start">开 始 训 练</button>
-    <div class="foot"><span class="hint-desktop">鼠标瞄准 · 左键射击 · ESC 暂停</span><span class="hint-touch">拖动瞄准 · 点按射击 · 建议横屏</span> <b>·</b> 最佳 <span id="menu-best">0</span></div>
+    <div class="foot"><span class="hint-desktop">鼠标瞄准 · 左键射击 · ESC 暂停</span><span class="hint-touch">横屏 · 拖动瞄准 · 键位可调</span> <b>·</b> 最佳 <span id="menu-best">0</span></div>
   </div>
 </div>
 
@@ -280,6 +335,12 @@
   </div>
 </div>
 
+<div id="rotate-overlay">
+  <div class="rotate-phone"></div>
+  <div class="rotate-title">请旋转至横屏</div>
+  <div class="rotate-sub">横屏视野更宽，射击键的位置也可以自由拖动</div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -305,7 +366,7 @@
     { y: 6.0, z: 11, halfW: 5.4, halfD: 1.6, amp: 4.1, speed: 0.95, accent: '#ff4f9a', rgb: '255,79,154' }
   ];
 
-  const KEY = { sens: 'aimtrainer.sens', dur: 'aimtrainer.dur', sound: 'aimtrainer.sound', best: 'aimtrainer.best' };
+  const KEY = { sens: 'aimtrainer.sens', dur: 'aimtrainer.dur', sound: 'aimtrainer.sound', best: 'aimtrainer.best', firepos: 'aimtrainer.firepos' };
   const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches || /(?:\?|&)touch=1(?:&|$)/.test(location.search);
 
   /* =========================================================
@@ -319,7 +380,7 @@
     score: $('#hud-score'), best: $('#hud-best'), time: $('#hud-time'), bar: $('#hud-bar'),
     acc: $('#hud-acc'), kills: $('#hud-kills'), heads: $('#hud-heads'),
     combo: $('#hud-combo'), mult: $('#hud-mult'), streak: $('#hud-streak'),
-    fire: $('#btn-fire'), pauseBtn: $('#btn-pause'),
+    fire: $('#btn-fire'), pauseBtn: $('#btn-pause'), layout: $('#btn-layout'), rotate: $('#rotate-overlay'),
     menu: $('#overlay-menu'), pause: $('#overlay-pause'), results: $('#overlay-results'),
     sensMenu: $('#sens-menu'), sensMenuVal: $('#sens-menu-val'),
     sensPause: $('#sens-pause'), sensPauseVal: $('#sens-pause-val'),
@@ -344,7 +405,7 @@
     shake: 0, spread: 0, hitMarker: 0, hitPart: '', headFlash: 0,
     lastShot: 0, hudT: 0, lastStreak: 0,
     sensitivity: 1, sound: true, best: 0,
-    locked: false, touchMode: IS_TOUCH,
+    locked: false, touchMode: IS_TOUCH, firePos: null,
     stats: { score: 0, shots: 0, hits: 0, kills: 0, headshots: 0, streak: 0, bestStreak: 0 }
   };
 
@@ -793,6 +854,8 @@
     hudEl.classList.toggle('show', on);
     el.fire.classList.toggle('show', on && S.touchMode);
     el.pauseBtn.classList.toggle('show', on && S.touchMode);
+    el.layout.classList.toggle('show', on && S.touchMode);
+    if (on) applyFirePos();
   }
 
   function hideOverlays() {
@@ -1003,12 +1066,85 @@
   ========================================================= */
   let lookId = null, lookLastX = 0, lookLastY = 0;
   let fireHoldTimer = null;
+  let fireDrag = null;
+  let layoutReturn = 'playing';
 
   function resetLook() { lookId = null; }
 
   function stopTouchFire() {
     if (fireHoldTimer) { clearInterval(fireHoldTimer); fireHoldTimer = null; }
     if (el.fire) el.fire.classList.remove('active');
+  }
+
+  function applyFirePos() {
+    if (!el.fire) return;
+    if (!S.touchMode || !S.firePos) {
+      el.fire.style.left = '';
+      el.fire.style.top = '';
+      el.fire.style.right = '';
+      el.fire.style.bottom = '';
+      return;
+    }
+    const r = el.fire.getBoundingClientRect();
+    const w = r.width, h = r.height;
+    if (!w || !h) return;
+    const cx = S.firePos.x / 100 * S.W;
+    const cy = S.firePos.y / 100 * S.H;
+    const x = clamp(cx - w / 2, 8, Math.max(8, S.W - w - 8));
+    const y = clamp(cy - h / 2, 8, Math.max(8, S.H - h - 8));
+    el.fire.style.left = x + 'px';
+    el.fire.style.top = y + 'px';
+    el.fire.style.right = 'auto';
+    el.fire.style.bottom = 'auto';
+  }
+
+  function saveFirePos() {
+    const r = el.fire.getBoundingClientRect();
+    if (!r.width) return;
+    S.firePos = {
+      x: (r.left + r.width / 2) / window.innerWidth * 100,
+      y: (r.top + r.height / 2) / window.innerHeight * 100
+    };
+    storeSet(KEY.firepos, JSON.stringify(S.firePos));
+  }
+
+  function resetFirePos() {
+    S.firePos = null;
+    storeSet(KEY.firepos, '');
+    applyFirePos();
+    toast('射击键已恢复默认位置');
+  }
+
+  function enterLayout() {
+    if (!S.touchMode) return;
+    if (S.mode !== 'playing' && S.mode !== 'countdown') return;
+    layoutReturn = S.mode;
+    S.mode = 'layout';
+    stopTouchFire();
+    resetLook();
+    fireDrag = null;
+    document.body.classList.add('layout');
+    applyFirePos();
+  }
+
+  function exitLayout() {
+    if (S.mode !== 'layout') return;
+    if (fireDrag) saveFirePos();
+    fireDrag = null;
+    el.fire.classList.remove('dragging');
+    document.body.classList.remove('layout');
+    S.mode = layoutReturn || 'playing';
+    applyFirePos();
+    toast('射击键位置已保存');
+  }
+
+  function checkOrientation() {
+    if (!S.touchMode || !el.rotate) return;
+    const portrait = window.innerHeight > window.innerWidth;
+    el.rotate.classList.toggle('show', portrait);
+    if (portrait && (S.mode === 'playing' || S.mode === 'countdown')) {
+      pauseSession();
+    }
   }
 
   function onLookStart(e) {
@@ -1044,8 +1180,35 @@
   canvas.addEventListener('pointerup', onLookEnd);
   canvas.addEventListener('pointercancel', onLookEnd);
 
+  function startFireDrag(e) {
+    const r = el.fire.getBoundingClientRect();
+    fireDrag = { id: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top };
+    el.fire.classList.add('dragging');
+    try { el.fire.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function moveFireDrag(e) {
+    if (!fireDrag || e.pointerId !== fireDrag.id) return;
+    const w = el.fire.offsetWidth;
+    const h = el.fire.offsetHeight;
+    let x = e.clientX - fireDrag.ox;
+    let y = e.clientY - fireDrag.oy;
+    x = clamp(x, 8, Math.max(8, window.innerWidth - w - 8));
+    y = clamp(y, 8, Math.max(8, window.innerHeight - h - 8));
+    el.fire.style.left = x + 'px';
+    el.fire.style.top = y + 'px';
+    el.fire.style.right = 'auto';
+    el.fire.style.bottom = 'auto';
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
   function onFireStart(e) {
-    if (!S.touchMode || S.mode !== 'playing') return;
+    if (!S.touchMode) return;
+    if (S.mode === 'layout') { startFireDrag(e); return; }
+    if (S.mode !== 'playing') return;
     e.preventDefault();
     e.stopPropagation();
     AudioSys.init();
@@ -1060,14 +1223,25 @@
   }
 
   function onFireEnd(e) {
+    if (fireDrag && (!e || e.pointerId === fireDrag.id)) {
+      fireDrag = null;
+      el.fire.classList.remove('dragging');
+      saveFirePos();
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      return;
+    }
     if (e) { e.preventDefault(); e.stopPropagation(); }
     stopTouchFire();
   }
 
   el.fire.addEventListener('pointerdown', onFireStart, { passive: false });
+  el.fire.addEventListener('pointermove', moveFireDrag, { passive: false });
   el.fire.addEventListener('pointerup', onFireEnd);
   el.fire.addEventListener('pointercancel', onFireEnd);
-  el.fire.addEventListener('pointerleave', onFireEnd);
+  el.fire.addEventListener('pointerleave', function (e) {
+    if (fireDrag) return;
+    onFireEnd(e);
+  });
   el.fire.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   /* =========================================================
@@ -1119,6 +1293,13 @@
     S.sound = storeGet(KEY.sound, '1') !== '0';
     const d = Number(storeGet(KEY.dur, 60));
     S.duration = [30, 60, 90].indexOf(d) >= 0 ? d : 60;
+    const fp = storeGet(KEY.firepos, '');
+    if (fp) {
+      try {
+        const p = JSON.parse(fp);
+        if (p && isFinite(p.x) && isFinite(p.y)) S.firePos = { x: p.x, y: p.y };
+      } catch (e) {}
+    }
 
     syncSensUI();
     el.sound.classList.toggle('on', S.sound);
@@ -1126,6 +1307,7 @@
     el.menuBest.textContent = fmt(S.best);
     el.time.textContent = S.duration;
     setDuration(S.duration);
+    applyFirePos();
   }
 
   /* =========================================================
@@ -1175,6 +1357,8 @@
     vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
 
     initStars();
+    applyFirePos();
+    checkOrientation();
   }
 
   function initStars() {
@@ -1677,6 +1861,9 @@
   ========================================================= */
   function bindEvents() {
     window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', function () {
+      setTimeout(resize, 160);
+    });
 
     el.sensMenu.addEventListener('input', function () { setSensitivity(Number(el.sensMenu.value)); });
     el.sensPause.addEventListener('input', function () { setSensitivity(Number(el.sensPause.value)); });
@@ -1704,6 +1891,22 @@
       e.preventDefault();
       e.stopPropagation();
       if (S.mode === 'playing' || S.mode === 'countdown') pauseSession();
+    });
+
+    el.layout.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      enterLayout();
+    });
+
+    $('#btn-layout-done').addEventListener('click', function (e) {
+      e.preventDefault();
+      exitLayout();
+    });
+
+    $('#btn-layout-reset').addEventListener('click', function (e) {
+      e.preventDefault();
+      resetFirePos();
     });
 
     document.addEventListener('pointerlockerror', function () {
